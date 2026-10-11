@@ -13,6 +13,7 @@ import {
   AssistantVibe,
   UserMemory,
   CompanionId,
+  EmotionMode,
 } from '../types';
 
 export interface LiveSessionCallbacks {
@@ -20,6 +21,7 @@ export interface LiveSessionCallbacks {
   onError: (errorMessage: string) => void;
   onToolAction: (action: ToolActionRecord) => void;
   onVibeChange?: (vibe: AssistantVibe) => void;
+  onEmotionChange?: (emotion: EmotionMode) => void;
   onMemoryUpdated?: (allMemories: UserMemory[], newMemory?: UserMemory) => void;
   onMicStatusChange?: (available: boolean, reason?: string) => void;
 }
@@ -31,6 +33,7 @@ export class LiveSession {
   private state: SessionState = 'disconnected';
   private selectedVoice: string = 'Aoede';
   private selectedCompanion: CompanionId = 'mahi';
+  private selectedEmotion: EmotionMode = 'empathetic';
   private pingInterval: number | null = null;
   private isMicActive: boolean = false;
 
@@ -56,6 +59,14 @@ export class LiveSession {
 
   public setVoice(voice: string) {
     this.selectedVoice = voice;
+  }
+
+  public setEmotion(emotion: EmotionMode) {
+    this.selectedEmotion = emotion;
+  }
+
+  public getEmotion(): EmotionMode {
+    return this.selectedEmotion;
   }
 
   public setCompanion(companion: CompanionId, defaultVoice?: string) {
@@ -169,7 +180,9 @@ export class LiveSession {
       const host = window.location.host;
       const wsUrl = `${protocol}//${host}/live?voice=${encodeURIComponent(
         this.selectedVoice
-      )}&companion=${encodeURIComponent(this.selectedCompanion)}`;
+      )}&companion=${encodeURIComponent(this.selectedCompanion)}&emotion=${encodeURIComponent(
+        this.selectedEmotion
+      )}`;
 
       const ws = new WebSocket(wsUrl);
       this.ws = ws;
@@ -315,6 +328,15 @@ export class LiveSession {
         const anyMsg = msg as any;
         if (this.callbacks.onMemoryUpdated) {
           this.callbacks.onMemoryUpdated(anyMsg.allMemories || [], anyMsg.memory);
+        }
+        break;
+      }
+
+      case 'emotionChanged' as any: {
+        const anyMsg = msg as any;
+        if (anyMsg.emotion) {
+          this.selectedEmotion = anyMsg.emotion;
+          this.callbacks.onEmotionChange?.(anyMsg.emotion);
         }
         break;
       }

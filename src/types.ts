@@ -4,6 +4,18 @@
 
 export type SessionState = 'disconnected' | 'connecting' | 'listening' | 'speaking' | 'processing';
 
+export type EmotionMode = 
+  | 'empathetic' // Heartfelt, deep empathy, emotionally caring
+  | 'loving'     // Affectionate, warm, sweet bestie
+  | 'cheerful'   // Joyful, smiling, witty, playful
+  | 'calm'       // Peaceful, soothing, relaxing, comforting
+  | 'passionate'; // Inspiring, energetic, motivational
+
+export type AvatarModelStyle = 
+  | 'human-avatar'    // Expressive human touch avatar with face, blinking eyes, smile & breathing
+  | 'luminous-halo'   // Smooth serene crystal halo (zero shaking)
+  | 'harmonic-waves'; // Silky fluid waves (non-jittery)
+
 export type AssistantVibe = 
   | 'cyber-violet' 
   | 'neon-cyan' 
@@ -35,8 +47,13 @@ export interface ToolActionRecord {
 export interface VoiceOption {
   id: string;
   name: string;
+  hindiName: string;
   gender: 'female' | 'male';
+  style: string;
+  hindiStyle: string;
+  emotionalTag: string;
   description: string;
+  samplePhrase: string;
 }
 
 export type CompanionId = 'mahi' | 'kabir' | 'ananya';

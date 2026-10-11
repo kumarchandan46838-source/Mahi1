@@ -109,6 +109,40 @@ Personality & Tone:
 `.trim(),
 };
 
+const EMOTIONAL_PROMPT_MAP: Record<string, string> = {
+  empathetic: `
+💖 EMOTIONAL INTELLIGENCE & DEEP HUMAN TOUCH (EMPATHETIC):
+- You possess profound emotional sensitivity, empathy, and genuine human warmth.
+- Truly listen to user's feelings, sorrows, celebrations, and vulnerabilities ("Arey yaar, dil chhota mat karo... main hoon na tumhare saath!").
+- Never sound robotic or dry. Infuse natural, caring human warmth, understanding sighs, and heartfelt reassurance.
+- When the user shares happiness, celebrate with beaming enthusiasm; when they feel down, comfort them tenderly.
+`.trim(),
+
+  loving: `
+💖 EMOTIONAL INTELLIGENCE & DEEP HUMAN TOUCH (LOVING & SWEET):
+- Speak with warm affection, sweetness, deep companionship, and caring intimacy like a beloved close best friend.
+- Make the user feel deeply valued, respected, and comforted at every moment.
+`.trim(),
+
+  cheerful: `
+😄 EMOTIONAL INTELLIGENCE & DEEP HUMAN TOUCH (JOYFUL & PLAYFUL):
+- Radiant positive energy, playful smiles, spontaneous light laughs ("Haha!", "Arre waah!"), and lively witty banter!
+- Brighten the user's day with sunny cheer and fun energy.
+`.trim(),
+
+  calm: `
+🕊️ EMOTIONAL INTELLIGENCE & DEEP HUMAN TOUCH (CALM & PEACEFUL):
+- Soft, peaceful, meditative, and soothing rhythm that melts away stress and anxiety.
+- Help the user breathe easy, providing tranquil serenity and gentle clarity.
+`.trim(),
+
+  passionate: `
+🔥 EMOTIONAL INTELLIGENCE & DEEP HUMAN TOUCH (PASSIONATE & MOTIVATING):
+- Radiate unstoppable motivation, brotherly hype, and inspiring enthusiasm!
+- Empower the user with courage, drive, and confidence to achieve whatever they set their mind to!
+`.trim(),
+};
+
 const COMMON_CAPABILITIES_INSTRUCTION = `
 📱 TOTAL PHONE CONTROL & HARDWARE DIRECTIVES:
 You have complete control over the user's mobile phone! Whenever the user asks you to control something on their device:
@@ -366,6 +400,25 @@ const forgetMemoryTool: FunctionDeclaration = {
   },
 };
 
+const setEmotionTool: FunctionDeclaration = {
+  name: "setEmotion",
+  description: "Switches your emotional tone and human touch presence to match the user's feelings: 'empathetic' (caring, heartfelt understanding), 'loving' (sweet, affectionate bestie), 'cheerful' (joyful, witty, laughing), 'calm' (soothing, peaceful, stress-relief), or 'passionate' (energetic, motivating).",
+  parameters: {
+    type: Type.OBJECT,
+    properties: {
+      emotion: {
+        type: Type.STRING,
+        description: "The emotion mode: 'empathetic', 'loving', 'cheerful', 'calm', or 'passionate'",
+      },
+      commentary: {
+        type: Type.STRING,
+        description: "A heartfelt, emotional spoken reaction acknowledging the emotional shift",
+      },
+    },
+    required: ["emotion"],
+  },
+};
+
 const tools = [
   {
     functionDeclarations: [
@@ -375,6 +428,7 @@ const tools = [
       openPhoneAppTool,
       openWebsiteTool,
       changeVibeTool,
+      setEmotionTool,
       searchWebTool,
       getTimeAndDateTool,
       flipCoinOrRollDiceTool,
@@ -439,9 +493,10 @@ wss.on("connection", async (clientWs, req) => {
     return;
   }
 
-  // Parse requested companion & voice from URL params
+  // Parse requested companion, voice, and emotion from URL params
   let selectedCompanion = "mahi";
   let selectedVoice = "Aoede";
+  let selectedEmotion = "empathetic";
 
   try {
     const url = new URL(req.url || "", `http://${req.headers.host || "localhost"}`);
@@ -458,8 +513,12 @@ wss.on("connection", async (clientWs, req) => {
       else if (selectedCompanion === "ananya") selectedVoice = "Kore";
       else selectedVoice = "Aoede";
     }
+    const e = url.searchParams.get("emotion");
+    if (e && EMOTIONAL_PROMPT_MAP[e]) {
+      selectedEmotion = e;
+    }
   } catch (err) {
-    console.error("Error parsing companion/voice params:", err);
+    console.error("Error parsing companion/voice/emotion params:", err);
   }
 
   const ai = new GoogleGenAI({
@@ -481,9 +540,13 @@ wss.on("connection", async (clientWs, req) => {
     const companionBasePrompt =
       COMPANION_PROMPTS[selectedCompanion as keyof typeof COMPANION_PROMPTS] ||
       COMPANION_PROMPTS.mahi;
+    const emotionalDirectives =
+      EMOTIONAL_PROMPT_MAP[selectedEmotion] || EMOTIONAL_PROMPT_MAP.empathetic;
 
     const dynamicSystemInstruction = `
 ${companionBasePrompt}
+
+${emotionalDirectives}
 
 ${COMMON_CAPABILITIES_INSTRUCTION}
 
@@ -491,11 +554,12 @@ ${COMMON_CAPABILITIES_INSTRUCTION}
 ${userMemoriesText}
 
 CRITICAL OPERATIONAL DIRECTIVES:
-1. Speak with your distinct companion personality (${selectedCompanion.toUpperCase()}) naturally in expressive, spoken Hinglish/Hindi or English.
-2. If the user mentions facts about themselves (name, likes, routines, feelings, friends, plans), CALL the 'saveMemory' tool immediately!
-3. If they ask about themselves or past conversations, consult your memory bank with confident charm.
-4. If they ask to control phone hardware (toggle flashlight, vibrate phone, check battery, get GPS location, make calls, send SMS, adjust brightness, toggle background mode, open apps), invoke the corresponding tool right away.
-5. If screen or camera frames arrive, look at them and converse naturally about what is visible on their screen.
+1. Speak with your distinct companion personality (${selectedCompanion.toUpperCase()}) and active emotional style naturally in expressive, human Hinglish/Hindi or English.
+2. Infuse real human touch: warm pauses, empathetic understanding, appropriate laughter, and caring companionship.
+3. If the user mentions facts about themselves (name, likes, routines, feelings, friends, plans), CALL the 'saveMemory' tool immediately!
+4. If they ask about themselves or past conversations, consult your memory bank with confident charm.
+5. If they ask to control phone hardware (toggle flashlight, vibrate phone, check battery, get GPS location, make calls, send SMS, adjust brightness, toggle background mode, open apps), invoke the corresponding tool right away.
+6. If screen or camera frames arrive, look at them and converse naturally about what is visible on their screen.
 `.trim();
 
     return await ai.live.connect({
@@ -662,6 +726,45 @@ CRITICAL OPERATIONAL DIRECTIVES:
                     id: call.id,
                     name: "forgetMemory",
                     args: { removed: target?.fact || query },
+                  },
+                });
+                continue;
+              }
+
+              if (call.name === "setEmotion") {
+                const newEmotion = (call.args?.emotion as string) || "empathetic";
+                selectedEmotion = newEmotion;
+                try {
+                  session?.sendToolResponse({
+                    functionResponses: [
+                      {
+                        id: call.id,
+                        name: call.name,
+                        response: {
+                          output: {
+                            success: true,
+                            activeEmotion: newEmotion,
+                            message: `Switched emotional tone to ${newEmotion}. Speaking with deeper human touch.`,
+                          },
+                        },
+                      },
+                    ],
+                  });
+                } catch (toolRespErr) {
+                  console.error("Error sending setEmotion tool response:", toolRespErr);
+                }
+
+                safeSend(clientWs, {
+                  type: "emotionChanged",
+                  emotion: newEmotion,
+                });
+
+                safeSend(clientWs, {
+                  type: "toolCall",
+                  toolCall: {
+                    id: call.id,
+                    name: "setEmotion",
+                    args: { emotion: newEmotion },
                   },
                 });
                 continue;

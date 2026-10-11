@@ -5,13 +5,13 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { VIBES } from './data/vibes';
-import { SessionState, AssistantVibe, ToolActionRecord } from './types';
+import { SessionState, AssistantVibe, ToolActionRecord, EmotionMode, AvatarModelStyle } from './types';
 import { AudioStreamer } from './services/AudioStreamer';
 import { LiveSession } from './services/LiveSession';
 import { FuturisticBackground } from './components/FuturisticBackground';
 import { HeaderBar } from './components/HeaderBar';
-import { VoiceCore } from './components/VoiceCore';
-import { AudioVisualizer } from './components/AudioVisualizer';
+import { EmotionalAvatarModel } from './components/EmotionalAvatarModel';
+import { VoiceEmotionSettingsModal } from './components/VoiceEmotionSettingsModal';
 import { ControlBar } from './components/ControlBar';
 import { ToolActionOverlay } from './components/ToolActionOverlay';
 import { QuickPromptsModal } from './components/QuickPromptsModal';
@@ -29,6 +29,9 @@ export default function App() {
   const [sessionState, setSessionState] = useState<SessionState>('disconnected');
   const [currentVibe, setCurrentVibe] = useState<AssistantVibe>('cyber-violet');
   const [selectedVoice, setSelectedVoice] = useState<string>('Aoede');
+  const [activeEmotion, setActiveEmotion] = useState<EmotionMode>('empathetic');
+  const [avatarStyle, setAvatarStyle] = useState<AvatarModelStyle>('human-avatar');
+  const [showVoiceEmotionModal, setShowVoiceEmotionModal] = useState<boolean>(false);
   const [activeCompanion, setActiveCompanion] = useState<CompanionId>('mahi');
   const [isScreenSharing, setIsScreenSharing] = useState<boolean>(false);
   const [isBackgroundMode, setIsBackgroundMode] = useState<boolean>(deviceController.isBackgroundModeActive());
@@ -131,12 +134,16 @@ export default function App() {
           setCurrentVibe(vibe);
         }
       },
+      onEmotionChange: (emotion) => {
+        setActiveEmotion(emotion);
+      },
       onMemoryUpdated: (allMemories) => {
         setMemories(allMemories);
       },
     });
 
     session.setVoice(selectedVoice);
+    session.setEmotion(activeEmotion);
     liveSessionRef.current = session;
 
     // Initialize ScreenVisionService for real-time visual streaming
@@ -184,12 +191,36 @@ export default function App() {
     };
   }, []);
 
-  // Update selected voice in live session
-  useEffect(() => {
-    if (liveSessionRef.current) {
-      liveSessionRef.current.setVoice(selectedVoice);
-    }
-  }, [selectedVoice]);
+  // Update selected voice and emotion in live session seamlessly
+  const handleSelectVoice = useCallback(
+    async (voiceId: string) => {
+      setSelectedVoice(voiceId);
+      if (liveSessionRef.current) {
+        liveSessionRef.current.setVoice(voiceId);
+        if (sessionState !== 'disconnected') {
+          liveSessionRef.current.disconnect();
+          await new Promise((r) => setTimeout(r, 120));
+          await liveSessionRef.current.connect();
+        }
+      }
+    },
+    [sessionState]
+  );
+
+  const handleSelectEmotion = useCallback(
+    async (emotion: EmotionMode) => {
+      setActiveEmotion(emotion);
+      if (liveSessionRef.current) {
+        liveSessionRef.current.setEmotion(emotion);
+        if (sessionState !== 'disconnected') {
+          liveSessionRef.current.disconnect();
+          await new Promise((r) => setTimeout(r, 120));
+          await liveSessionRef.current.connect();
+        }
+      }
+    },
+    [sessionState]
+  );
 
   // Handle Companion Change
   const handleSelectCompanion = useCallback(
@@ -384,15 +415,17 @@ export default function App() {
         state={sessionState}
         sessionDuration={sessionDuration}
         selectedVoice={selectedVoice}
+        activeEmotion={activeEmotion}
         activeCompanion={activeCompanion}
         onSelectCompanion={handleSelectCompanion}
         isScreenSharing={isScreenSharing}
         isBackgroundMode={isBackgroundMode}
         onOpenPhoneControl={() => setShowPhoneControlModal(true)}
+        onOpenVoiceSettings={() => setShowVoiceEmotionModal(true)}
         memoriesCount={memories.length}
         onOpenMemories={() => setShowMemoriesModal(true)}
         onSelectVibe={(vibeKey) => setCurrentVibe(vibeKey)}
-        onSelectVoice={(voiceId) => setSelectedVoice(voiceId)}
+        onSelectVoice={handleSelectVoice}
       />
 
       {/* Real-time Vision Overlay HUD when Screen Sharing or Camera Vision is active */}
@@ -449,40 +482,33 @@ export default function App() {
         className="flex-1 flex flex-col items-center justify-center relative z-20 px-4 py-4 sm:py-6"
       >
         {/* Subtle holographic aura badge */}
-        <div className="mb-5 flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 backdrop-blur-md">
+        <div className="mb-4 flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 backdrop-blur-md">
           <Sparkles className="w-3.5 h-3.5" style={{ color: vibeConfig.primaryColor }} />
           <span className="text-[11px] font-medium tracking-wide text-white/70">
             {sessionState === 'speaking'
               ? `${COMPANIONS[activeCompanion]?.name || 'Companion'} is speaking live...`
               : sessionState === 'listening'
-              ? `${COMPANIONS[activeCompanion]?.name || 'Companion'} is listening • Say anything`
+              ? `${COMPANIONS[activeCompanion]?.name || 'Companion'} is listening with heart • Say anything`
               : sessionState === 'connecting'
               ? 'Opening Gemini Live duplex stream...'
-              : `Tap the sphere to talk with ${COMPANIONS[activeCompanion]?.name || 'Mahi'}`}
+              : `Tap model to talk with ${COMPANIONS[activeCompanion]?.name || 'Mahi'}`}
           </span>
         </div>
 
-        {/* Central Futuristic Voice Core Sphere */}
-        <VoiceCore
+        {/* Central Non-Shaking Lifelike Emotional Model */}
+        <EmotionalAvatarModel
           vibe={vibeConfig}
           state={sessionState}
           isMuted={isMuted}
           audioVolume={audioMetrics.activeIntensity}
-          frequencyData={audioMetrics.frequencyData}
+          activeCompanionId={activeCompanion}
+          activeEmotion={activeEmotion}
+          avatarStyle={avatarStyle}
           onToggleConnect={handleToggleConnect}
           onInterrupt={handleInterrupt}
+          onSelectEmotion={handleSelectEmotion}
+          onOpenSettings={() => setShowVoiceEmotionModal(true)}
         />
-
-        {/* Real-time Audio Waveform Visualizer */}
-        <div className="mt-6 w-full flex justify-center">
-          <AudioVisualizer
-            vibe={vibeConfig}
-            state={sessionState}
-            inputVolume={audioMetrics.inputVolume}
-            outputVolume={audioMetrics.outputVolume}
-            frequencyData={audioMetrics.frequencyData}
-          />
-        </div>
       </main>
 
       {/* Bottom Mobile-first Control Deck */}
@@ -549,6 +575,19 @@ export default function App() {
         onToggleScreenShare={handleToggleScreenShare}
         onToggleCameraVision={handleToggleCameraVision}
         onClose={() => setShowPhoneControlModal(false)}
+      />
+
+      {/* Voice, Emotion & Model Settings Modal */}
+      <VoiceEmotionSettingsModal
+        isOpen={showVoiceEmotionModal}
+        vibe={vibeConfig}
+        selectedVoice={selectedVoice}
+        activeEmotion={activeEmotion}
+        avatarStyle={avatarStyle}
+        onSelectVoice={handleSelectVoice}
+        onSelectEmotion={handleSelectEmotion}
+        onSelectAvatarStyle={(style) => setAvatarStyle(style)}
+        onClose={() => setShowVoiceEmotionModal(false)}
       />
     </div>
   );

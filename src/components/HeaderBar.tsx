@@ -10,8 +10,10 @@ import {
   Users,
   Eye,
   Zap,
+  Volume2,
+  Heart,
 } from 'lucide-react';
-import { VibeConfig, SessionState, AssistantVibe, CompanionId } from '../types';
+import { VibeConfig, SessionState, AssistantVibe, CompanionId, EmotionMode } from '../types';
 import { VIBES, VOICE_OPTIONS } from '../data/vibes';
 import { COMPANIONS } from '../data/companions';
 
@@ -20,6 +22,7 @@ interface Props {
   state: SessionState;
   sessionDuration: number;
   selectedVoice: string;
+  activeEmotion?: EmotionMode;
   activeCompanion: CompanionId;
   memoriesCount: number;
   isScreenSharing?: boolean;
@@ -27,6 +30,7 @@ interface Props {
   onSelectCompanion: (companionId: CompanionId) => void;
   onOpenMemories: () => void;
   onOpenPhoneControl: () => void;
+  onOpenVoiceSettings?: () => void;
   onSelectVibe: (vibeKey: AssistantVibe) => void;
   onSelectVoice: (voiceId: string) => void;
 }
@@ -36,6 +40,7 @@ export const HeaderBar: React.FC<Props> = ({
   state,
   sessionDuration,
   selectedVoice,
+  activeEmotion = 'empathetic',
   activeCompanion,
   memoriesCount,
   isScreenSharing = false,
@@ -43,6 +48,7 @@ export const HeaderBar: React.FC<Props> = ({
   onSelectCompanion,
   onOpenMemories,
   onOpenPhoneControl,
+  onOpenVoiceSettings,
   onSelectVibe,
   onSelectVoice,
 }) => {
@@ -170,13 +176,27 @@ export const HeaderBar: React.FC<Props> = ({
         </div>
       )}
 
-      {/* Right Controls (Phone & Friends, Screen Vision, Memories, Vibe) */}
+      {/* Right Controls (Voice & Emotion, Phone & Friends, Screen Vision, Memories, Vibe) */}
       <div className="flex items-center gap-1.5 sm:gap-2">
+        {/* Voice & Emotion Settings Button */}
+        {onOpenVoiceSettings && (
+          <button
+            id="voice-emotion-settings-button"
+            onClick={onOpenVoiceSettings}
+            className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-semibold text-white bg-gradient-to-r from-purple-500/20 to-pink-500/20 hover:from-purple-500/35 hover:to-pink-500/35 border border-pink-500/40 shadow-sm transition-all group"
+            title="Voice & Emotional Settings (Male/Female voices & Human Touch)"
+          >
+            <Volume2 className="w-3.5 h-3.5 text-pink-400 group-hover:scale-110 transition-transform" />
+            <span className="inline font-medium">{selectedVoice}</span>
+            <span className="text-[10px] text-pink-300 font-mono hidden md:inline">({activeEmotion})</span>
+          </button>
+        )}
+
         {/* Total Phone & Hardware Control Button */}
         <button
           id="phone-control-button"
           onClick={onOpenPhoneControl}
-          className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-medium text-white bg-gradient-to-r from-pink-500/20 to-purple-500/20 hover:from-pink-500/30 hover:to-purple-500/30 border border-pink-500/40 shadow-sm transition-all group"
+          className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-medium text-white bg-white/5 hover:bg-white/10 border border-white/10 shadow-sm transition-all group"
           title="Total Phone Control & 3 Friends Setting"
         >
           <Smartphone className="w-3.5 h-3.5 text-pink-400 group-hover:scale-110 transition-transform" />
