@@ -1,0 +1,6 @@
+{
+  "name": "Mahi AI Assistant",
+  "description": "A real-time, voice-to-voice AI assistant and full phone controller with live screen sharing, background mode, and 3 companion personalities powered by Gemini Live API.",
+  "requestFramePermissions": ["microphone", "camera", "display-capture", "geolocation"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
